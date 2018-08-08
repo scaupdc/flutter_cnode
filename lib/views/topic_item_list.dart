@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:cnode_flutter_client/models/topic.dart';
 import 'package:cnode_flutter_client/views/topic_item.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 class TopicItemList extends StatefulWidget {
   final String tab;
@@ -15,78 +16,38 @@ class TopicItemList extends StatefulWidget {
 
 class _TopicItemListState extends State<TopicItemList>
     with AutomaticKeepAliveClientMixin {
-  final GlobalKey<RefreshIndicatorState> key = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _keyRefreshIndicatorState =
+      GlobalKey<RefreshIndicatorState>();
   List<Topic> _topics;
 
-  getTopics() async {
-    HttpClient httpClient = new HttpClient();
-    Uri uri = new Uri.https('cnodejs.org', '/api/v1/topics', {
-      'page': '0',
-      'tab': widget.tab,
-      'limit': '15',
-      'mdrender': 'false',
-    });
-    HttpClientRequest request = await httpClient.getUrl(uri);
-    HttpClientResponse response = await request.close();
-    String responseBody = await response.transform(utf8.decoder).join();
-    Map<String, dynamic> json = jsonDecode(responseBody);
-    List<dynamic> data = json['data'];
-    data.forEach((dynamic topicJson) => _topics.add(Topic.fromJson(topicJson)));
-    setState(() {
-      _topics;
-    });
-  }
-
   @override
-  // TODO: implement wantKeepAlive
   bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    super.initState();
-    print('initState');
-    _topics = List();
-    getTopics();
-  }
 
   @override
   void didChangeDependencies() {
     // TODO: implement didChangeDependencies
     super.didChangeDependencies();
-    print('didChangeDependencies');
+    Timer(
+      const Duration(
+        milliseconds: 500,
+      ),
+      () {
+        _keyRefreshIndicatorState.currentState?.show();
+      },
+    );
   }
 
-  @override
-  void didUpdateWidget(TopicItemList oldWidget) {
-    // TODO: implement didUpdateWidget
-    super.didUpdateWidget(oldWidget);
-    print('didUpdateWidget');
-  }
-
-  @override
-  void deactivate() {
-    // TODO: implement deactivate
-    super.deactivate();
-    print('deactivate');
-  }
-
-  @override
-  void dispose() {
-    // TODO: implement dispose
-    super.dispose();
-    print('dispose');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: RefreshIndicator(
-        key: key,
-        onRefresh: _onRefresh,
-        child: ListView.builder(
+  Widget _buildContent() {
+    if (_topics == null) {
+      return ListView(
+        physics: AlwaysScrollableScrollPhysics(),
+        children: <Widget>[],
+      );
+    } else {
+      if (_topics.length > 0) {
+        return ListView.builder(
           padding: EdgeInsets.all(0.0),
-          itemCount: _topics.length > 0 ? _topics.length * 2 : 0,
+          itemCount: _topics.length * 2,
           itemBuilder: (BuildContext context, int index) {
             if (index.isOdd)
               return Divider(
@@ -96,16 +57,78 @@ class _TopicItemListState extends State<TopicItemList>
               topic: _topics[index ~/ 2],
             );
           },
-        ),
+        );
+      } else {
+        return CustomScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          slivers: <Widget>[
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: <Widget>[
+                    Image.asset(
+                      'assets/it_dog_ph.png',
+                      width: 64.0,
+                      fit: BoxFit.fitWidth,
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(top: 15.0),
+                    ),
+                    Text(
+                      'Shit!Nothing...',
+                      style: TextStyle(
+                        color: Color(0xFFcdcdcd),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          ],
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    print('build');
+    return SafeArea(
+      child: RefreshIndicator(
+        key: _keyRefreshIndicatorState,
+        onRefresh: _onRefresh,
+        child: _buildContent(),
       ),
     );
   }
 
-  Future<Null> _onRefresh() {
-    final Completer<Null> completer = Completer<Null>();
-    Timer(const Duration(seconds: 3), () {
-      completer.complete(null);
+  Future<Null> _onRefresh() async {
+    HttpClient httpClient = HttpClient();
+    Uri uri = Uri.https('cnodejs.org', '/api/v1/topics', {
+      'page': '0',
+      'tab': widget.tab,
+      'limit': '15',
+      'mdrender': 'false',
     });
-    return completer.future.then((_) {});
+
+    HttpClientRequest request = await httpClient.getUrl(uri);
+    HttpClientResponse response = await request.close();
+    return response.transform(utf8.decoder).join().then((String responseBody) {
+      Map<String, dynamic> json = jsonDecode(responseBody);
+      List<dynamic> data = json['data'];
+      if (_topics != null) {
+        _topics.clear();
+      } else {
+        _topics = <Topic>[];
+      }
+      data.forEach(
+        (dynamic topicJson) => _topics.add(Topic.fromJson(topicJson)),
+      );
+      return Future<Null>((() => null));
+    }).then((Null _) {
+      setState(() {});
+    });
   }
 }

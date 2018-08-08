@@ -1,7 +1,7 @@
 import 'package:cnode_flutter_client/models/user.dart';
 import 'package:flutter/material.dart';
 
-class UserDrawer extends StatelessWidget {
+class MemberDrawer extends StatelessWidget {
   final User user = User.singleton;
   final VoidCallback onPressedAvatar;
   final VoidCallback onPressedSetting;
@@ -9,7 +9,7 @@ class UserDrawer extends StatelessWidget {
   final GestureTapCallback onTapFavorites;
   final GestureTapCallback onTapNotifications;
 
-  UserDrawer({
+  MemberDrawer({
     this.onPressedAvatar,
     this.onPressedSetting,
     this.onTapTopics,

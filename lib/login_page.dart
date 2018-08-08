@@ -8,6 +8,7 @@ import 'package:cnode_flutter_client/models/user.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:barcode_scan/barcode_scan.dart';
 
 class Login extends StatefulWidget {
   @override
@@ -38,7 +39,6 @@ class _LoginState extends State<Login> {
       setState(() {
         _status = 'login';
       });
-      print('login------');
     }
   }
 
@@ -62,16 +62,21 @@ class _LoginState extends State<Login> {
       User.singleton = User.fromJson(json);
       SharedPreferences sp = await SharedPreferences.getInstance();
       sp.setString(accessTokenKey, _accessToken);
+      print(User.singleton.status);
       _enterHome();
     } else {
       final String msg = json['error_msg'];
       if (msg != null) {
-        final SnackBar bar = SnackBar(
-          content: Text(msg),
-        );
-        _scaffoldKey.currentState.showSnackBar(bar);
+        _showSnackBar(msg);
       }
     }
+  }
+
+  _showSnackBar(String msg) {
+    final SnackBar bar = SnackBar(
+      content: Text(msg),
+    );
+    _scaffoldKey.currentState.showSnackBar(bar);
   }
 
   Widget _buildActionWidget() {
@@ -100,46 +105,62 @@ class _LoginState extends State<Login> {
     }
   }
 
-  void _onPressScan() {
-    _invokeScan();
-  }
-
-  Future<Null> _invokeScan() async {
+  Future _onPressScan() async {
     try {
-      final String scanResult = await platform.invokeMethod('invokeScan');
-      print('result=$scanResult');
-
-      if (scanResult != null) {
-        if (scanResult == 'error') {
-          final SnackBar bar = SnackBar(
-            content: Text('扫描结果无效'),
-          );
-          _scaffoldKey.currentState.showSnackBar(bar);
-        } else if (scanResult == 'close') {
-        } else {
-          setState(() {
-            _status = 'loading';
-            _accessToken = scanResult;
-          });
-          _postAccessToken();
-        }
+      String scanResult = await BarcodeScanner.scan();
+      setState(() {
+        _status = 'loading';
+        _accessToken = scanResult;
+      });
+      _postAccessToken();
+    } on PlatformException catch (ex) {
+      if (ex.code == BarcodeScanner.CameraAccessDenied) {
+        _showSnackBar('无法访问相机');
+      } else {
+        _showSnackBar('未知错误');
       }
-    } on PlatformException catch (e) {
-      print('Failed: ${e.message}');
+    } on FormatException {} catch (ex) {
+      _showSnackBar('未知错误');
     }
   }
 
+  // Future<Null> _invokeScan() async {
+  //   try {
+  //     final String scanResult = await platform.invokeMethod('invokeScan');
+  //     print('result=$scanResult');
+
+  //     if (scanResult != null) {
+  //       if (scanResult == 'error') {
+  //         final SnackBar bar = SnackBar(
+  //           content: Text('扫描结果无效'),
+  //         );
+  //         _scaffoldKey.currentState.showSnackBar(bar);
+  //       } else if (scanResult == 'close') {
+  //       } else {
+  //         setState(() {
+  //           _status = 'loading';
+  //           _accessToken = scanResult;
+  //         });
+  //         _postAccessToken();
+  //       }
+  //     }
+  //   } on PlatformException catch (e) {
+  //     print('Failed: ${e.message}');
+  //   }
+  // }
+
   void _onPressGuest() {
+    User.singleton = User.guest();
     _enterHome();
   }
 
   void _enterHome() {
     Navigator.pushReplacement(
       context,
-      new PageRouteBuilder(
+      PageRouteBuilder(
         pageBuilder: (_, __, ___) => Home(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) =>
-            new FadeTransition(opacity: animation, child: child),
+            FadeTransition(opacity: animation, child: child),
       ),
     );
   }
